@@ -122,6 +122,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .tl .t { font-family: var(--f-num); font-variant-numeric: tabular-nums; color: var(--muted); font-size: .88rem; }
 .tl .mk { width: 24px; height: 24px; border-radius: 50%; border: 1.6px solid var(--tint); background: var(--surface); display: grid; place-items: center; color: var(--accent-ink); padding: 0; cursor: default; }
 .tl .mk.plan { border-style: dashed; }
+.tl .mk[data-act] { cursor: pointer; }
+.tl li.done .ti { text-decoration: line-through; opacity: .6; }
 .tl .mk.plan::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--tint)); }
 .tl button.mk { cursor: pointer; border-color: var(--muted); }
 .tl button.mk.on { background: var(--accent); border-color: var(--accent); }
@@ -755,7 +757,32 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       b.push({ t: '17:00', e: '18:00', l: 'ทบทวนเรื่องที่อบรม หรือเรียน data เบาๆ', k: 'study', h: 1 });
       note = 'อบรมแล้วยังมีเวลาเรียนช่วงเย็น';
     }
+    var fit = fitTodos(b, iso);
+    if (fit) note = (note ? note + ' · ' : '') + fit;
     return { blocks: b, note: note, gap: restBefore(iso) };
+  }
+  /* make the day's plan respect timed to-dos: move study/research/health/life blocks that clash, drop them if no room */
+  function toMin(t) { return t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null; }
+  function fromMin(m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
+  function fitTodos(b, iso) {
+    var list = (typeof todos !== 'undefined' ? todos : []).filter(function (t) { return t.date === iso && t.time && !t.done; });
+    if (!list.length) return '';
+    var busy = list.map(function (t) { var a = toMin(t.time); return [a, Math.min(a + 60, 1440)]; });
+    var MOV = { study: 1, research: 1, health: 1, life: 1 }, placed = [], moved = 0, dropped = 0;
+    b.forEach(function (x) { if (!MOV[x.k] && x.t && x.e) { var a = toMin(x.t), z = toMin(x.e); busy.push([a, z > a ? z : 1440]); } });
+    function clash(a, z) { return busy.concat(placed).some(function (r) { return a < r[1] && z > r[0]; }); }
+    for (var i = 0; i < b.length; i++) {
+      var x = b[i]; if (!MOV[x.k] || !x.t || !x.e) continue;
+      var a = toMin(x.t), z = toMin(x.e), d = z - a; if (d <= 0) continue;
+      if (!clash(a, z)) { placed.push([a, z]); continue; }
+      var got = null, s0;
+      for (s0 = a + 30; s0 + d <= 22 * 60 && got == null; s0 += 30) if (!clash(s0, s0 + d)) got = s0;
+      for (s0 = a - 30; s0 >= 7 * 60 && got == null; s0 -= 30) if (!clash(s0, s0 + d)) got = s0;
+      if (got != null) { x.t = fromMin(got); x.e = fromMin(got + d); x.l += ' (เลื่อนเวลาเพราะมีนัด)'; placed.push([got, got + d]); moved++; }
+      else { b.splice(i, 1); i--; dropped++; }
+    }
+    b.sort(function (p1, p2) { return (p1.t || '99') < (p2.t || '99') ? -1 : (p1.t || '99') > (p2.t || '99') ? 1 : 0; });
+    return moved || dropped ? 'มีนัด ' + list.length + ' รายการ' + (moved ? ' เลื่อนแผน ' + moved + ' ช่วง' : '') + (dropped ? ' งด ' + dropped + ' ช่วงเพราะเวลาไม่พอ' : '') : '';
   }
   var KIND = { study: 'เรียน', research: 'วิจัย', rest: 'พัก', health: 'สุขภาพ', life: 'ชีวิต', work: 'งาน' };
   var KCOL = { study: '--s-morning', research: '--s-train', rest: '--s-night', health: '--s-vac', life: '--s-ot', work: '--s-afternoon' };
@@ -1069,6 +1096,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   }
   function renderTimeline(p, iso) {
     var items = p.blocks.map(function (b) { return { kind: 'plan', t: b.t, e: b.e, l: b.l, k: b.k }; });
+    todosOn(iso).forEach(function (t) { items.push({ kind: 'todo', t: t.time || '', todo: t }); });
     items.sort(function (a, b) { return (a.t || '99') < (b.t || '99') ? -1 : (a.t || '99') > (b.t || '99') ? 1 : 0; });
     if (!items.length) { $('#tl').innerHTML = '<li style="display:block"><div class="empty"><img src="stickers/latte.webp" alt="" style="width:76px;display:block;margin:0 auto 6px">ยังไม่มีแผนของวันนี้ เพราะยังไม่มีข้อมูลเวร</div></li>'; return; }
     $('#tl').innerHTML = items.map(function (it) {
