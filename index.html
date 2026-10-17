@@ -332,7 +332,9 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
 }
 /* ---- money ---- */
 .mseg { display: inline-flex; background: var(--tint-2); border-radius: 999px; padding: 3px; gap: 2px; }
-.mseg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; padding: 6px 16px; border-radius: 999px; cursor: pointer; }
+.mseg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; padding: 6px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+#mnAdd .head { flex-wrap: wrap; gap: 8px; }
+#mnAdd .head h2 { white-space: nowrap; }
 .mseg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
 .mn-amt { width: 100%; font: 600 1.9rem/1.2 var(--f-num); color: var(--ink); background: var(--surface); border: 1.5px solid var(--line); border-radius: 18px; padding: 10px 14px; margin: 12px 0 10px; text-align: right; }
 .mn-lbl { font-size: .78rem; color: var(--muted); margin: 8px 0 4px; }
@@ -370,6 +372,13 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
 .mn-tips li img { width: 28px; }
 .mn-tips b { font-weight: 600; }
 .mn-set { display: grid; grid-template-columns: minmax(0, 1fr) 8rem; gap: 8px 10px; align-items: center; font-size: .88rem; }
+.mn-accs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mn-acc { background: var(--tint-2); border-radius: 16px; padding: 10px 10px 9px; min-width: 0; }
+.mn-acc .n { display: block; font-size: .74rem; color: var(--muted); }
+.mn-acc b { display: block; font: 600 1.05rem var(--f-num); color: var(--ink); margin: 2px 0; overflow-wrap: anywhere; }
+.mn-acc .s { font-size: .7rem; color: var(--muted); }
+.mn-acc.neg b { color: var(--warn); }
+.mn-list .v.mv { color: var(--muted); }
 .mn-set input { font: inherit; text-align: right; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 7px 10px; width: 100%; }
 /* ---- welcome screen (wallpaper) ---- */
 #splash { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
@@ -631,11 +640,19 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     </div>
     <div class="card dark" id="mnHero"></div>
 
+    <div class="card" id="mnAcctCard">
+      <div class="head"><h2>บัญชีของฉัน</h2></div>
+      <div class="mn-accs" id="mnAccts"></div>
+      <p class="mn-cap" id="mnAcctNote"></p>
+    </div>
+
     <div class="card framed" id="mnAdd">
-      <div class="head"><h2>บันทึกรายการ</h2><div class="mseg" role="group" aria-label="ประเภท"><button type="button" data-mtype="out" aria-pressed="true">รายจ่าย</button><button type="button" data-mtype="in" aria-pressed="false">รายรับ</button></div></div>
+      <div class="head"><h2>บันทึกรายการ</h2><div class="mseg" role="group" aria-label="ประเภท"><button type="button" data-mtype="out" aria-pressed="true">รายจ่าย</button><button type="button" data-mtype="in" aria-pressed="false">รายรับ</button><button type="button" data-mtype="move" aria-pressed="false">โอนย้าย</button></div></div>
       <input class="mn-amt" id="mnAmt" type="text" inputmode="decimal" placeholder="0" aria-label="จำนวนเงิน (บาท)">
-      <p class="mn-lbl">หมวด</p><div class="tags" id="mnCats"></div>
-      <p class="mn-lbl" id="mnMethLbl">จ่ายด้วย</p><div class="tags" id="mnMeths"></div>
+      <div id="mnCatBox"><p class="mn-lbl">หมวด</p><div class="tags" id="mnCats"></div>
+      <p class="mn-lbl" id="mnMethLbl">จ่ายจากบัญชีไหน</p><div class="tags" id="mnMeths"></div></div>
+      <div id="mnMoveBox" hidden><p class="mn-lbl">ทางลัด</p><div class="tags" id="mnPresets"></div>
+      <p class="mn-lbl">จาก</p><div class="tags" id="mnFrom"></div><p class="mn-lbl">ไปที่</p><div class="tags" id="mnTo"></div></div>
       <div class="mn-row2"><input type="date" id="mnDate" aria-label="วันที่"><input type="text" id="mnNote" placeholder="โน้ต เช่น ข้าวมันไก่ ปั๊ม PTT" aria-label="โน้ต"></div>
       <button class="pill-btn mn-save" id="mnSave" type="button">บันทึก</button>
       <div class="msg" id="mnMsg" role="status"></div>
@@ -660,7 +677,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     </div>
 
     <div class="card">
-      <div class="head"><h2>แยกตามช่องทางจ่าย</h2></div>
+      <div class="head"><h2>รายจ่ายแยกตามบัญชี</h2></div>
       <div class="mn-bars" id="mnByMeth"></div>
     </div>
 
@@ -680,6 +697,10 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       <div class="mn-set">
         <label for="mnBudget">งบใช้จ่ายต่อเดือน (บาท)</label><input id="mnBudget" type="text" inputmode="numeric">
         <label for="mnStart">เริ่มรอบเดือนวันที่</label><input id="mnStart" type="text" inputmode="numeric">
+        <span style="grid-column:1/-1;color:var(--muted);font-size:.78rem;margin-top:6px">ยอดตั้งต้นก่อนเริ่มใช้แอป (ใส่ครั้งเดียว)</span>
+        <label for="mnOpen-bank">เงินในบัญชีธนาคาร</label><input id="mnOpen-bank" type="text" inputmode="decimal">
+        <label for="mnOpen-cash">เงินสดในกระเป๋า</label><input id="mnOpen-cash" type="text" inputmode="decimal">
+        <label for="mnOpen-card">ยอดบัตรเครดิตค้างจ่าย</label><input id="mnOpen-card" type="text" inputmode="decimal">
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="pill-btn ghost" id="mnCsv" type="button">ดาวน์โหลดรายการเป็น CSV</button><span class="msg" id="mnSetMsg" role="status" style="margin:0"></span></div>
     </div>
@@ -1172,6 +1193,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     ['#mnDaily', 'x', 'top:-28px;right:-6px;width:38px;transform:rotate(10deg)', 'before'],
     ['#mnByCat', 'x', 'top:-28px;right:-6px;width:42px;transform:rotate(6deg)', 'before'],
     ['#mnByMeth', 'x', 'top:-28px;left:-8px;width:40px;transform:rotate(-10deg)', 'before'],
+    ['#mnAccts', 'x', 'top:-28px;right:-6px;width:40px;transform:rotate(8deg)', 'before'],
     ['#mnTrend', 'x', 'top:-28px;right:-6px;width:40px', 'before'],
     ['#mnTips', 'x', 'top:-28px;left:-8px;width:40px;transform:rotate(-6deg)', 'before'],
     ['#mnBudget', 'x', 'top:-28px;right:-6px;width:42px;transform:rotate(8deg)', 'before']
@@ -1794,9 +1816,21 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   };
 
   /* ---- money: income & spending ---- */
-  var money = [], mset = { budget: 20000, start: 1 }, mnType = 'out', mnCat = 'กิน', mnMeth = 'card', mnKey = null, mnDay = todayISO();
+  var money = [], mset = { budget: 20000, start: 1, open: { bank: 0, cash: 0, card: 0 } }, mnFrom = 'bank', mnTo = 'cash', mnType = 'out', mnCat = 'กิน', mnMeth = 'card', mnKey = null, mnDay = todayISO();
   var MCATS = { out: ['กิน', 'น้ำมัน', 'ของจำเป็น', 'สนอง Need', 'ค่าหอพัก', 'อื่นๆ'], in: ['โอนเข้างบเดือน', 'ค่าเวร/รายได้', 'อื่นๆ'] };
-  var MMETH = { card: 'บัตรเครดิต', cash: 'เงินสด', transfer: 'เงินโอน' };
+  var MMETH = { bank: 'บัญชีธนาคาร', cash: 'เงินสด', card: 'บัตรเครดิต' };
+  var MPRESET = [['ถอนเงินสด', 'bank', 'cash'], ['จ่ายบัตรเครดิต', 'bank', 'card'], ['ฝากเงินสดเข้าบัญชี', 'cash', 'bank']];
+  function accOf(x) { return x.method === 'transfer' || !MMETH[x.method] ? 'bank' : x.method; }
+  /* running balance of each account up to and including a date: bank & cash = money held, card = amount owed */
+  function balances(upto) {
+    var o = mset.open || {}, b = { bank: +o.bank || 0, cash: +o.cash || 0, card: +o.card || 0 };
+    money.forEach(function (x) {
+      if (upto && x.date > upto) return; var a = +x.amount || 0;
+      if (x.type === 'move') { var f = x.from, t = x.to; if (b[f] == null || b[t] == null) return; b[f] += f === 'card' ? a : -a; b[t] += t === 'card' ? -a : a; return; }
+      var k = accOf(x), sign = x.type === 'in' ? 1 : -1; b[k] += k === 'card' ? -sign * a : sign * a;
+    });
+    return b;
+  }
   var MST = { 'กิน': 'dumpling', 'น้ำมัน': 'clock', 'ของจำเป็น': 'backpack', 'สนอง Need': 'cupcake2', 'ค่าหอพัก': 'cocoa', 'อื่นๆ': 'notebook' };
   function baht(n) { return (Math.round(n) || 0).toLocaleString('th-TH'); }
   function mStart() { var s = Math.round(+mset.start || 1); return s >= 1 && s <= 28 ? s : 1; }
@@ -1808,9 +1842,16 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   function mDays(a, b) { return Math.round((parse(b) - parse(a)) / 864e5) + 1; }
   function renderMoneyForm() {
     Array.prototype.forEach.call(document.querySelectorAll('[data-mtype]'), function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-mtype') === mnType ? 'true' : 'false'); });
+    var mv = mnType === 'move'; $('#mnCatBox').hidden = mv; $('#mnMoveBox').hidden = !mv;
+    if (mv) {
+      $('#mnPresets').innerHTML = MPRESET.map(function (p) { return '<button type="button" data-mpre="' + p[1] + '>' + p[2] + '" aria-pressed="' + (mnFrom === p[1] && mnTo === p[2]) + '">' + p[0] + '</button>'; }).join('');
+      $('#mnFrom').innerHTML = Object.keys(MMETH).map(function (k) { return '<button type="button" data-mfrom="' + k + '" aria-pressed="' + (k === mnFrom) + '">' + MMETH[k] + '</button>'; }).join('');
+      $('#mnTo').innerHTML = Object.keys(MMETH).map(function (k) { return '<button type="button" data-mto="' + k + '" aria-pressed="' + (k === mnTo) + '">' + MMETH[k] + '</button>'; }).join('');
+      return;
+    }
     if (MCATS[mnType].indexOf(mnCat) < 0) mnCat = MCATS[mnType][0];
     $('#mnCats').innerHTML = MCATS[mnType].map(function (c) { return '<button type="button" data-mcat="' + esc(c) + '" aria-pressed="' + (c === mnCat) + '">' + esc(c) + '</button>'; }).join('');
-    $('#mnMethLbl').textContent = mnType === 'out' ? 'จ่ายด้วย' : 'รับเข้าทาง';
+    $('#mnMethLbl').textContent = mnType === 'out' ? 'จ่ายจากบัญชีไหน' : 'รับเข้าบัญชีไหน';
     $('#mnMeths').innerHTML = Object.keys(MMETH).map(function (k) { return '<button type="button" data-mmeth="' + k + '" aria-pressed="' + (k === mnMeth) + '">' + MMETH[k] + '</button>'; }).join('');
   }
   function barList(rows, total, unit) {
@@ -1833,20 +1874,30 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     var remain = budget - spent, pct = budget ? Math.min(100, spent / budget * 100) : 0;
     var FIXED = { 'ค่าหอพัก': 1 }, fixedSpent = out.filter(function (x) { return FIXED[x.cat]; }).reduce(function (s, x) { return s + (+x.amount || 0); }, 0), varSpent = spent - fixedSpent;
     var proj = isCur && gone ? fixedSpent + varSpent / gone * total : spent, perDay = isCur && left > 0 ? remain / left : 0;
-    var cardOut = out.filter(function (x) { return x.method === 'card'; }).reduce(function (s, x) { return s + (+x.amount || 0); }, 0);
+    var cardOut = out.filter(function (x) { return accOf(x) === 'card'; }).reduce(function (s, x) { return s + (+x.amount || 0); }, 0);
+    var bal = balances(today >= rg.end ? rg.end : today);
     var C = 2 * Math.PI * 52, dash = (pct / 100 * C).toFixed(1);
     $('#mnHero').innerHTML = '<div class="mn-hero"><div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="11"/>' +
       '<circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-dasharray="' + dash + ' ' + C.toFixed(1) + '"/></svg><div class="in"><b style="font:600 1.4rem var(--f-num)">' + Math.round(pct) + '%</b><span class="sm">ของงบ</span></div></div>' +
       '<div><div class="sm">' + (remain >= 0 ? 'เหลือใช้ได้อีก' : 'ใช้เกินงบแล้ว') + '</div><div class="big">' + baht(Math.abs(remain)) + ' ฿</div>' +
       '<div class="line">ใช้ไป ' + baht(spent) + ' / ' + baht(budget) + ' บาท</div>' +
       (isCur ? '<div class="line">เหลือ ' + left + ' วัน' + (perDay > 0 ? ' · ใช้ได้วันละ ~' + baht(perDay) + ' บาท' : '') + '</div>' : '') + '</div></div>' +
-      '<div class="mn-stats"><div><b>' + baht(inc) + '</b><span>รับเข้า</span></div><div><b>' + baht(cardOut) + '</b><span>บัตรเครดิต (ต้องจ่าย)</span></div><div><b>' + baht(gone ? varSpent / gone : 0) + '</b><span>เฉลี่ย/วัน' + (fixedSpent ? ' (ไม่รวมค่าหอ)' : '') + '</span></div></div>' +
+      '<div class="mn-stats"><div><b>' + baht(inc) + '</b><span>รับเข้า</span></div><div><b>' + baht(cardOut) + '</b><span>รูดบัตรเดือนนี้</span></div><div><b>' + baht(gone ? varSpent / gone : 0) + '</b><span>เฉลี่ย/วัน' + (fixedSpent ? ' (ไม่รวมค่าหอ)' : '') + '</span></div></div>' +
       (isCur && budget && proj > budget ? '<div class="mn-warn">⚠ ถ้าใช้แบบนี้ทั้งเดือน จะใช้ประมาณ ' + baht(proj) + ' บาท เกินงบ ' + baht(proj - budget) + ' บาท</div>' : '');
+    /* accounts */
+    var acc = [['bank', 'บัญชีธนาคาร', 'คงเหลือ', bal.bank], ['cash', 'เงินสด', 'คงเหลือ', bal.cash], ['card', 'บัตรเครดิต', 'ยอดค้างจ่าย', bal.card]];
+    $('#mnAccts').innerHTML = acc.map(function (a) {
+      var neg = a[0] !== 'card' && a[3] < 0;
+      return '<div class="mn-acc' + (neg ? ' neg' : '') + '"><span class="n">' + a[1] + '</span><b>' + (a[3] < 0 ? '−' : '') + baht(Math.abs(a[3])) + '</b><span class="s">' + a[2] + '</span></div>';
+    }).join('');
+    var free = bal.bank - bal.card;
+    $('#mnAcctNote').textContent = bal.card > 0 ? (free >= 0 ? 'ถ้าจ่ายบัตรวันนี้ บัญชีจะเหลือ ' + baht(free) + ' บาท' : '⚠ เงินในบัญชีไม่พอจ่ายบัตร ขาดอีก ' + baht(-free) + ' บาท') : 'ยอดตามที่ลงไว้ ถึง ' + fShort(today >= rg.end ? rg.end : today);
     /* day list */
     $('#mnDay').textContent = fmt(mnDay, { weekday: 'short', day: 'numeric', month: 'short' });
     var dl2 = money.filter(function (x) { return x.date === mnDay; }).sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
     $('#mnList').innerHTML = dl2.length ? dl2.map(function (x) {
-      return '<li data-mid="' + esc(x.id) + '"><span class="t">' + esc(x.cat) + (x.note ? ' · ' + esc(x.note) : '') + '<small>' + (MMETH[x.method] || '') + '</small></span><span class="v' + (x.type === 'in' ? ' in' : '') + '">' + (x.type === 'in' ? '+' : '−') + baht(x.amount) + '</span><button class="mini" data-mact="del" aria-label="ลบ">' + svg(IC.del, 'sm') + '</button></li>';
+      if (x.type === 'move') return '<li data-mid="' + esc(x.id) + '"><span class="t">โอนย้าย' + (x.note ? ' · ' + esc(x.note) : '') + '<small>' + (MMETH[x.from] || '') + ' → ' + (MMETH[x.to] || '') + '</small></span><span class="v mv">' + baht(x.amount) + '</span><button class="mini" data-mact="del" aria-label="ลบ">' + svg(IC.del, 'sm') + '</button></li>';
+      return '<li data-mid="' + esc(x.id) + '"><span class="t">' + esc(x.cat) + (x.note ? ' · ' + esc(x.note) : '') + '<small>' + MMETH[accOf(x)] + '</small></span><span class="v' + (x.type === 'in' ? ' in' : '') + '">' + (x.type === 'in' ? '+' : '−') + baht(x.amount) + '</span><button class="mini" data-mact="del" aria-label="ลบ">' + svg(IC.del, 'sm') + '</button></li>';
     }).join('') : '<li class="none">ยังไม่มีรายการวันนี้</li>';
     var dOut = mSum(dl2, 'out'); $('#mnDaySum').textContent = dl2.length ? 'วันนี้ใช้ไป ' + baht(dOut) + ' บาท' + (mSum(dl2, 'in') ? ' · รับเข้า ' + baht(mSum(dl2, 'in')) + ' บาท' : '') : '';
     /* daily chart */
@@ -1865,7 +1916,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     var bc = {}; out.forEach(function (x) { bc[x.cat] = (bc[x.cat] || 0) + (+x.amount || 0); });
     var cats = Object.keys(bc).map(function (k) { return [k, bc[k], out.filter(function (x) { return x.cat === k; }).length + ' รายการ']; }).sort(function (a, b) { return b[1] - a[1]; });
     $('#mnByCat').innerHTML = barList(cats, spent, 'รายจ่าย');
-    var bm = {}; out.forEach(function (x) { bm[x.method] = (bm[x.method] || 0) + (+x.amount || 0); });
+    var bm = {}; out.forEach(function (x) { var k = accOf(x); bm[k] = (bm[k] || 0) + (+x.amount || 0); });
     $('#mnByMeth').innerHTML = barList(Object.keys(MMETH).filter(function (k) { return bm[k]; }).map(function (k) { return [MMETH[k], bm[k], '']; }).sort(function (a, b) { return b[1] - a[1]; }), spent, 'รายจ่าย');
     /* 6-month trend */
     var ks = [], i; for (i = 5; i >= 0; i--) ks.push(mShift(key, -i));
@@ -1890,12 +1941,14 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       var need = bc['สนอง Need'] || 0;
       if (need / Math.max(1, varSpent) > 0.2) tip('cupcake2', 'ของสนอง Need ' + Math.round(need / Math.max(1, varSpent) * 100) + '% ของค่าใช้จ่ายผันแปร ลองกฎ <b>รอ 24 ชม.</b> ก่อนกดซื้อ ถ้าพรุ่งนี้ยังอยากได้ค่อยซื้อ');
       var cardShare = cardOut / spent;
-      if (cardShare > 0.5) tip('calculator', 'จ่ายด้วยบัตรเครดิต ' + Math.round(cardShare * 100) + '% (' + baht(cardOut) + ' บาท) <b>กันเงินในบัญชีไว้จ่ายบัตรเท่านี้</b> อย่าเอาไปใช้ต่อ');
+      if (bal.card > 0 && bal.bank < bal.card) tip('calculator', 'ยอดบัตรเครดิตค้างจ่าย ' + baht(bal.card) + ' บาท แต่ในบัญชีมี ' + baht(bal.bank) + ' บาท <b>หยุดรูดบัตรไว้ก่อน</b> จนกว่าจะจ่ายบัตรรอบนี้');
+      else if (cardShare > 0.5) tip('calculator', 'จ่ายด้วยบัตรเครดิต ' + Math.round(cardShare * 100) + '% (' + baht(cardOut) + ' บาท) <b>กันเงินในบัญชีไว้จ่ายบัตร</b> อย่าเอาไปใช้ต่อ');
       var pc = {}; prevList.forEach(function (x) { pc[x.cat] = (pc[x.cat] || 0) + (+x.amount || 0); });
       cats.forEach(function (c) { var p = pc[c[0]]; if (p && c[1] > p * 1.2 && c[1] - p > 300) tip(MST[c[0]] || 'notebook', '<b>' + esc(c[0]) + '</b> เพิ่มขึ้นจากเดือนก่อน ' + baht(c[1] - p) + ' บาท (+' + Math.round((c[1] / p - 1) * 100) + '%)'); });
       if (bc['น้ำมัน'] && gone) tip('clock', 'ค่าน้ำมันเฉลี่ย ' + baht(bc['น้ำมัน'] / gone * 7) + ' บาท/สัปดาห์ วันที่ไปเวรควงหรือไปห้าง ลองรวบธุระไว้รอบเดียวกัน');
     }
     $('#mnTips').innerHTML = tips.slice(0, 5).join('');
+    ['bank', 'cash', 'card'].forEach(function (k) { var el = $('#mnOpen-' + k); if (el && document.activeElement !== el) el.value = baht((mset.open || {})[k] || 0); });
     var bi = $('#mnBudget'), si = $('#mnStart');
     if (document.activeElement !== bi) bi.value = baht(budget); if (document.activeElement !== si) si.value = mStart();
     renderMoneyForm();
@@ -1903,8 +1956,11 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   }
   document.addEventListener('click', async function (e) {
     var b;
-    if ((b = e.target.closest('[data-mtype]'))) { mnType = b.getAttribute('data-mtype'); if (mnType === 'in') mnMeth = 'transfer'; renderMoneyForm(); return; }
+    if ((b = e.target.closest('[data-mtype]'))) { mnType = b.getAttribute('data-mtype'); if (mnType === 'in' && mnMeth === 'card') mnMeth = 'bank'; renderMoneyForm(); return; }
     if ((b = e.target.closest('[data-mcat]'))) { mnCat = b.getAttribute('data-mcat'); renderMoneyForm(); return; }
+    if ((b = e.target.closest('[data-mpre]'))) { var pp = b.getAttribute('data-mpre').split('>'); mnFrom = pp[0]; mnTo = pp[1]; renderMoneyForm(); return; }
+    if ((b = e.target.closest('[data-mfrom]'))) { mnFrom = b.getAttribute('data-mfrom'); renderMoneyForm(); return; }
+    if ((b = e.target.closest('[data-mto]'))) { mnTo = b.getAttribute('data-mto'); renderMoneyForm(); return; }
     if ((b = e.target.closest('[data-mmeth]'))) { mnMeth = b.getAttribute('data-mmeth'); renderMoneyForm(); return; }
     if ((b = e.target.closest('[data-mact="del"]'))) { var id = b.closest('li').getAttribute('data-mid'); if (db && confirm('ลบรายการนี้?')) { try { await db.doc('money/' + id).delete(); } catch (er) { setMsg('#mnMsg', 'ลบไม่สำเร็จ'); } } }
   });
@@ -1913,8 +1969,11 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     if (!(amt > 0)) { setMsg('#mnMsg', 'ใส่จำนวนเงินก่อน'); $('#mnAmt').focus(); return; }
     if (!db) { setMsg('#mnMsg', 'หน้านี้ยังเก็บข้อมูลไม่ได้'); return; }
     var date = $('#mnDate').value || todayISO();
-    var data = { type: mnType, amount: Math.round(amt * 100) / 100, cat: mnCat, method: mnMeth, date: date, note: $('#mnNote').value.trim(), createdAt: Date.now() };
-    try { await db.collection('money').add(data); $('#mnAmt').value = ''; $('#mnNote').value = ''; mnDay = date; mnKey = mKeyOf(date); setMsg('#mnMsg', 'บันทึกแล้ว ' + (mnType === 'in' ? '+' : '−') + baht(amt) + ' บาท · ' + mnCat); renderMoney(); }
+    if (mnType === 'move' && mnFrom === mnTo) { setMsg('#mnMsg', 'เลือกบัญชีต้นทางกับปลายทางให้ต่างกัน'); return; }
+    var data = mnType === 'move'
+      ? { type: 'move', amount: Math.round(amt * 100) / 100, from: mnFrom, to: mnTo, cat: 'โอนย้าย', date: date, note: $('#mnNote').value.trim(), createdAt: Date.now() }
+      : { type: mnType, amount: Math.round(amt * 100) / 100, cat: mnCat, method: mnMeth, date: date, note: $('#mnNote').value.trim(), createdAt: Date.now() };
+    try { await db.collection('money').add(data); $('#mnAmt').value = ''; $('#mnNote').value = ''; mnDay = date; mnKey = mKeyOf(date); setMsg('#mnMsg', 'บันทึกแล้ว ' + (mnType === 'move' ? MMETH[mnFrom] + ' → ' + MMETH[mnTo] + ' ' + baht(amt) + ' บาท' : (mnType === 'in' ? '+' : '−') + baht(amt) + ' บาท · ' + mnCat)); renderMoney(); }
     catch (er) { setMsg('#mnMsg', 'บันทึกไม่สำเร็จ ลองอีกครั้ง'); }
   };
   $('#mnPrev').onclick = function () { mnKey = mShift(mnKey, -1); var r = mRange(mnKey); mnDay = r.end < todayISO() ? r.end : todayISO(); renderMoney(); };
@@ -1923,15 +1982,16 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   $('#mnDNext').onclick = function () { mnDay = addDays(mnDay, 1); $('#mnDate').value = mnDay; mnKey = mKeyOf(mnDay); renderMoney(); };
   function saveMset() {
     var b = Number(String($('#mnBudget').value).replace(/[^\d.]/g, '')), s = Math.round(Number($('#mnStart').value));
-    var o = { budget: b > 0 ? b : mset.budget, start: s >= 1 && s <= 28 ? s : mStart() };
+    var op = {}; ['bank', 'cash', 'card'].forEach(function (k) { op[k] = Number(String($('#mnOpen-' + k).value).replace(/[^\d.\-]/g, '')) || 0; });
+    var o = { budget: b > 0 ? b : mset.budget, start: s >= 1 && s <= 28 ? s : mStart(), open: op };
     mset = o; mnKey = mKeyOf(todayISO()); renderMoney();
     if (db) db.doc('settings/money').set(o).then(function () { setMsg('#mnSetMsg', 'บันทึกแล้ว'); }, function () { setMsg('#mnSetMsg', 'บันทึกไม่สำเร็จ'); });
   }
-  $('#mnBudget').addEventListener('change', saveMset); $('#mnStart').addEventListener('change', saveMset);
+  ['#mnBudget', '#mnStart', '#mnOpen-bank', '#mnOpen-cash', '#mnOpen-card'].forEach(function (id) { $(id).addEventListener('change', saveMset); });
   $('#mnCsv').onclick = async function () {
     if (!dl) { setMsg('#mnSetMsg', 'ดาวน์โหลดไฟล์ไม่ได้'); return; }
-    var rows = [['วันที่', 'ประเภท', 'หมวด', 'ช่องทาง', 'จำนวน (บาท)', 'โน้ต'].join(',')].concat(money.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).map(function (x) {
-      return [x.date, x.type === 'in' ? 'รายรับ' : 'รายจ่าย', x.cat, MMETH[x.method] || '', x.amount, '"' + String(x.note || '').replace(/"/g, '""') + '"'].join(',');
+    var rows = [['วันที่', 'ประเภท', 'หมวด', 'บัญชี', 'จำนวน (บาท)', 'โน้ต'].join(',')].concat(money.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).map(function (x) {
+      return [x.date, x.type === 'in' ? 'รายรับ' : x.type === 'move' ? 'โอนย้าย' : 'รายจ่าย', x.cat, x.type === 'move' ? MMETH[x.from] + ' → ' + MMETH[x.to] : MMETH[accOf(x)], x.amount, '"' + String(x.note || '').replace(/"/g, '""') + '"'].join(',');
     }));
     try { await dl.save({ filename: 'gida-money.csv', data: '﻿' + rows.join('\n') }); setMsg('#mnSetMsg', 'บันทึกแล้ว'); } catch (er) { setMsg('#mnSetMsg', 'บันทึกไม่สำเร็จ'); }
   };
@@ -1958,7 +2018,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     db.collection('todos').onSnapshot(function (s) { todos = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); render(); }, onErr);
     db.doc('settings/rates').onSnapshot(function (s) { if (s.exists) rates = Object.assign({}, DEFAULT_RATES, s.data()); render(); }, onErr);
     db.collection('money').onSnapshot(function (s) { money = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); renderMoney(); }, onErr);
-    db.doc('settings/money').onSnapshot(function (s) { if (s.exists) { mset = Object.assign({ budget: 20000, start: 1 }, s.data()); mnKey = null; renderMoney(); } }, onErr);
+    db.doc('settings/money').onSnapshot(function (s) { if (s.exists) { mset = Object.assign({ budget: 20000, start: 1, open: { bank: 0, cash: 0, card: 0 } }, s.data()); mnKey = null; renderMoney(); } }, onErr);
     db.collection('tasks').onSnapshot(function (s) { tasks = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); computeSchedule(); renderTasks(); renderDay(); }, onErr);
     try { var usr = await claude.use('user'); uid = usr ? await usr.id() : null; } catch (e) { uid = null; }
     if (uid) db.collection('data/users/' + uid).onSnapshot(function (s) { diary = {}; s.docs.forEach(function (d) { if (d.id.indexOf('diary-') === 0) diary[d.id.slice(6)] = d.data(); }); renderDiary(); renderMood(); }, onErr);
