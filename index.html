@@ -509,8 +509,9 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       <div class="txt" style="max-width:70%">
         <span class="eyebrow">ปฏิทินในไอโฟน</span>
         <h2>ลงเวรเดือนนี้ในปฏิทิน</h2>
-        <p>ดาวน์โหลดไฟล์ปฏิทิน (.ics) ของเวรที่ยังไม่เคยส่ง แล้วกด "เพิ่มทั้งหมด" ลงปฏิทินไอโฟน มีเตือนก่อนเข้าเวร 90 นาที</p>
+        <p>ได้ไฟล์ปฏิทิน (.ics) ของเวรเดือนที่เปิดดูอยู่ เปิดแล้วกด "เพิ่มทั้งหมด" ลงปฏิทินไอโฟน มีเตือนก่อนเข้าเวร 90 นาที</p>
         <button class="pill-btn" id="sendcal">ดาวน์โหลดไฟล์ปฏิทิน <svg class="ico sm" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+        <button class="pill-btn ghost" id="sharecal" type="button" style="margin-top:8px;padding:6px 14px">แชร์ไฟล์ปฏิทิน</button>
         <div class="msg" id="calmsg" role="status"></div>
       </div>
     </div>
@@ -533,7 +534,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
         <span class="lede" style="font-size:.8rem">เดือน</span>
-        <input type="month" id="impmonth" style="font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 10px">
+        <select id="impmonth" aria-label="เดือน" style="font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 10px"></select>
         <button class="pill-btn ghost" id="impmanual" type="button" style="padding:6px 14px">แก้ไข / กรอกเอง</button>
       </div>
       <img id="impprev" alt="" hidden style="margin-top:10px;width:100%;border-radius:12px;border:1px solid var(--line)">
@@ -1482,6 +1483,12 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   }
   $('#imppersonbtn').onclick = function () { var p = $('#impperson'); p.hidden = !p.hidden; p.style.display = p.hidden ? 'none' : 'grid'; };
   $('#impperson').style.display = 'none';
+  function monthOpt(v) {
+    var el = $('#impmonth'); if (el.querySelector('option[value="' + v + '"]')) return;
+    var o = document.createElement('option'); o.value = v; o.textContent = fMonth(v + '-01');
+    var after = Array.prototype.filter.call(el.options, function (x) { return x.value > v; })[0]; el.insertBefore(o, after || null);
+  }
+  (function () { var y = +todayISO().slice(0, 4), m = +todayISO().slice(5, 7); for (var i = -3; i <= 14; i++) monthOpt(isoOf(new Date(Date.UTC(y, m - 1 + i, 1))).slice(0, 7)); })();
   $('#impmonth').value = isoOf(new Date(Date.UTC(+todayISO().slice(0, 4), +todayISO().slice(5, 7), 1))).slice(0, 7);
   $('#impfile').onchange = function () {
     impFile = this.files && this.files[0] || null;
@@ -1540,7 +1547,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   };
   $('#implist').addEventListener('change', function (e) { var i = e.target.getAttribute('data-i'); if (imp && i != null) imp.rows[+i].kind = e.target.value; });
   $('#impcancel').onclick = function () { imp = null; $('#impresult').hidden = true; setMsg('#impmsg', ''); };
-  $('#editshift').onclick = function () { $('#impmonth').value = sel.slice(0, 7); showTab('month'); $('#impmanual').click(); var d = +sel.slice(8); setTimeout(function () { var s = document.querySelector('#implist select[data-i="' + (d - 1) + '"]'); if (s) { s.closest('li').scrollIntoView({ behavior: 'smooth', block: 'center' }); s.focus(); } }, 350); setMsg('#impmsg', 'เปลี่ยนเวรวันที่ ' + d + ' ในช่องด้านขวา แล้วกด "บันทึกลงแอป" วันอื่นจะไม่ถูกแตะ'); };
+  $('#editshift').onclick = function () { monthOpt(sel.slice(0, 7)); $('#impmonth').value = sel.slice(0, 7); showTab('month'); $('#impmanual').click(); var d = +sel.slice(8); setTimeout(function () { var s = document.querySelector('#implist select[data-i="' + (d - 1) + '"]'); if (s) { s.closest('li').scrollIntoView({ behavior: 'smooth', block: 'center' }); s.focus(); } }, 350); setMsg('#impmsg', 'เปลี่ยนเวรวันที่ ' + d + ' ในช่องด้านขวา แล้วกด "บันทึกลงแอป" วันอื่นจะไม่ถูกแตะ'); };
   $('#impsave').onclick = async function () {
     if (!imp || !db) { setMsg('#impmsg', 'หน้านี้ยังบันทึกไม่ได้ ต้องเปิดในแอป Claude'); return; }
     var notes = {}; $('#impnotes').value.split('\n').forEach(function (l) { var mm = l.match(/^\s*(\d{1,2})\s*[:.\-]\s*(.+)$/); if (mm) notes[+mm[1]] = (notes[+mm[1]] ? notes[+mm[1]] + ' · ' : '') + mm[2].trim(); });
@@ -1568,8 +1575,8 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   $('#sendcal').onclick = async function () {
     if (busy) return;
     if (!mcp && db) {
-      var lst = rosterList().filter(function (r) { return r.start && r.date.slice(0, 7) === viewMonth && !r.gcal; });
-      if (!lst.length) { setMsg('#calmsg', 'เดือนนี้ไม่มีเวรที่ยังไม่ได้ลงปฏิทิน'); return; }
+      var lst = rosterList().filter(function (r) { return r.start && r.date.slice(0, 7) === viewMonth; });
+      if (!lst.length) { setMsg('#calmsg', 'เดือน' + fMonth(viewMonth + '-01') + ' ยังไม่มีเวร เพิ่มตารางเวรก่อน หรือกดลูกศรด้านบนเพื่อเลือกเดือน'); return; }
       var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Hello GiDA//TH', 'CALSCALE:GREGORIAN', 'X-WR-TIMEZONE:Asia/Bangkok', 'BEGIN:VTIMEZONE', 'TZID:Asia/Bangkok', 'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:+0700', 'TZOFFSETTO:+0700', 'TZNAME:+07', 'END:STANDARD', 'END:VTIMEZONE'], stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
       lst.forEach(function (r) {
         var segs = r.segments && r.segments.length ? r.segments : [{ label: 'เวร' + r.type, start: r.start, end: r.end }];
@@ -1581,11 +1588,13 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
         });
       });
       L.push('END:VCALENDAR');
+      var fname = 'gida-shifts-' + viewMonth + '.ics', body = L.join('\r\n');
       try {
-        await dl.save({ filename: 'gida-shifts-' + viewMonth + '.ics', data: L.join('\r\n'), type: 'text/calendar' });
-        for (var q = 0; q < lst.length; q++) await db.doc('roster/' + lst[q].date).update({ gcal: true });
-        setMsg('#calmsg', 'สร้างไฟล์ ' + lst.length + ' เวรแล้ว เปิดไฟล์แล้วกด "เพิ่มทั้งหมด"');
-      } catch (er) { setMsg('#calmsg', 'สร้างไฟล์ไม่สำเร็จ'); }
+        var file = null; try { file = new File([body], fname, { type: 'text/calendar' }); } catch (e1) {}
+        if (this.id === 'sharecal' && file && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+        else await dl.save({ filename: fname, data: body, type: 'text/calendar' });
+        setMsg('#calmsg', 'เวร' + fMonth(viewMonth + '-01') + ' ' + lst.length + ' เวร เปิดไฟล์แล้วกด "เพิ่มทั้งหมด" ถ้าเคยเพิ่มเดือนนี้ไปแล้ว เวรจะซ้ำ');
+      } catch (er) { if (!(er && er.name === 'AbortError')) setMsg('#calmsg', 'สร้างไฟล์ไม่สำเร็จ ลองปุ่ม "แชร์ไฟล์"'); }
       return;
     }
     if (!mcp || !db) { setMsg('#calmsg', 'เปิดหน้านี้ในแอป Claude ที่เชื่อม Google Calendar แล้วจึงส่งได้'); return; }
@@ -1615,6 +1624,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     catch (er) { setMsg('#csvmsg', er && er.code === 'declined' ? 'ยกเลิกการบันทึก' : 'บันทึกไฟล์ไม่สำเร็จ'); }
   };
 
+  $('#sharecal').onclick = $('#sendcal').onclick;
   $('#bkup').onclick = function () { window.gidaBackup().then(function () { setMsg('#bkmsg', 'สร้างไฟล์สำรองแล้ว เก็บไว้ใน Files หรือ iCloud Drive'); }, function () { setMsg('#bkmsg', 'สำรองไม่สำเร็จ'); }); };
   $('#bkin').onchange = function () {
     var f = this.files && this.files[0]; if (!f) return;
