@@ -362,6 +362,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
 @keyframes sp-pop { from { transform: translateY(16px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { #splash *, #splash { animation: none !important; transition: opacity .2s !important; } }
 @media (max-height: 700px) { #splash { padding-top: calc(env(safe-area-inset-top, 0px) + 4vh); } #splash h1 { font-size: 1.9rem; } #splash .sp-q { margin: 10px 4px 14px; } }
+#impcard label[for=impfile], #impread, #impstop, #impprev, #imppersonbtn, #impperson { display: none !important; }
 </style>
 <script src="runtime.js"></script>
 </head>
@@ -519,7 +520,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     </div>
     <div class="card taped" id="impcard">
       <div class="head"><h2>เพิ่มตารางเวรเดือนใหม่</h2><button class="link" id="imppersonbtn" type="button">ตั้งค่าชื่อ</button></div>
-      <p class="lede" style="font-size:.85rem;margin:0 0 10px">เลือกรูปตารางเวรของวอร์ด แล้วให้ AI อ่านแถวของคุณ ตรวจและแก้ได้ก่อนบันทึก</p>
+      <p class="lede" style="font-size:.85rem;margin:0 0 10px">เลือกเดือน แล้วกด "แก้ไข / กรอกเอง" พิมพ์รหัสเวรเรียงวันจากตารางของวอร์ดได้เลย ตรวจและแก้ได้ก่อนบันทึก</p>
       <div id="impperson" hidden style="display:grid;gap:8px;margin-bottom:10px">
         <label class="lede" style="font-size:.8rem">ชื่อในตาราง<input type="text" id="impname" value="นายิกา เริงอารมย์"></label>
         <label class="lede" style="font-size:.8rem">รหัส<input type="text" id="impcode" value="007941"></label>
@@ -531,7 +532,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
         <button class="pill-btn ghost" id="impstop" type="button" hidden>หยุด</button>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
-        <span class="lede" style="font-size:.8rem">หรือกรอกเอง</span>
+        <span class="lede" style="font-size:.8rem">เดือน</span>
         <input type="month" id="impmonth" style="font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 10px">
         <button class="pill-btn ghost" id="impmanual" type="button" style="padding:6px 14px">แก้ไข / กรอกเอง</button>
       </div>
@@ -539,8 +540,10 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       <div class="msg" id="impmsg" role="status"></div>
       <div id="impresult" hidden>
         <div class="head" style="margin-top:6px"><h2 id="imptitle">—</h2><span class="badge" id="impcount"></span></div>
+        <label class="lede" style="font-size:.8rem;display:block;margin:4px 0 0">พิมพ์รหัสเวรเรียงวันที่ 1, 2, 3… เว้นวรรคคั่น (เวรควบใส่ / เช่น _/x ช/x อ4/o)<textarea id="impcodes" style="min-height:3.6rem;font-family:var(--f-num)" placeholder="x _/x o o m t x ช/x x อ4 o w"></textarea></label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 4px"><button class="pill-btn ghost" id="impfill" type="button" style="padding:6px 14px">ใส่ลงตาราง</button><span class="lede" style="font-size:.75rem">_ เช้า · ช เช้า OT · x บ่าย · o ดึก · อ4 อ8 อบรม · v ลาพักร้อน · m t w T f s S p1 p2 หยุด</span></div>
         <ul class="rows imp" id="implist"></ul>
-        <label style="display:inline-flex;gap:6px;align-items:center;font-size:.85rem;margin-top:10px"><input type="checkbox" id="impgcal" checked> บันทึกแล้วลง Google Calendar ต่อเลย</label>
+        <label style="display:inline-flex;gap:6px;align-items:center;font-size:.85rem;margin-top:10px"><input type="checkbox" id="impgcal" checked> บันทึกแล้วไปที่ปุ่มดาวน์โหลดไฟล์ปฏิทิน</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
           <button class="pill-btn" id="impsave" type="button">บันทึกลงแอป</button>
           <button class="pill-btn ghost" id="impcancel" type="button">ยกเลิก</button>
@@ -1445,7 +1448,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   function daysIn(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
   function impShow(y, m, days, notes, rowName) {
     var n = daysIn(y, m), key = y + '-' + pad(m), have = rosterList().filter(function (r) { return r.date.slice(0, 7) === key; }).length;
-    imp = { y: y, m: m, rows: [] };
+    imp = { y: y, m: m, rows: [] }; $('#impcodes').value = '';
     for (var d = 1; d <= n; d++) {
       var src = days[d] || { top: '', bottom: '' };
       imp.rows.push({ d: d, top: src.top || '', bottom: src.bottom || '', kind: src.kind || codeToKind(src.top, src.bottom), unsure: !!src.unsure });
@@ -1524,6 +1527,12 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     impShow(y, m, days, nts, '');
     setMsg('#impmsg', 'เลือกประเภทเวรของแต่ละวัน แล้วกดบันทึก');
   };
+  $('#impfill').onclick = function () {
+    if (!imp) return;
+    var toks = $('#impcodes').value.trim().split(/[\s,]+/).filter(Boolean), n = Math.min(toks.length, imp.rows.length), sels = document.querySelectorAll('#implist select');
+    for (var i = 0; i < n; i++) { var pr = toks[i].split('/'); imp.rows[i].kind = codeToKind(pr[0], pr[1] || ''); if (sels[i]) sels[i].value = imp.rows[i].kind; }
+    setMsg('#impmsg', n ? 'ใส่แล้ว ' + n + ' วัน' + (toks.length > imp.rows.length ? ' (รหัสเกินจำนวนวันในเดือน ตัดส่วนเกินออก)' : toks.length < imp.rows.length ? ' ที่เหลือแก้ทีละวันได้ด้านล่าง' : '') + ' ตรวจอีกครั้งแล้วกดบันทึก' : 'ยังไม่ได้พิมพ์รหัสเวร');
+  };
   $('#implist').addEventListener('change', function (e) { var i = e.target.getAttribute('data-i'); if (imp && i != null) imp.rows[+i].kind = e.target.value; });
   $('#impcancel').onclick = function () { imp = null; $('#impresult').hidden = true; setMsg('#impmsg', ''); };
   $('#editshift').onclick = function () { $('#impmonth').value = sel.slice(0, 7); showTab('month'); $('#impmanual').click(); var d = +sel.slice(8); setTimeout(function () { var s = document.querySelector('#implist select[data-i="' + (d - 1) + '"]'); if (s) { s.closest('li').scrollIntoView({ behavior: 'smooth', block: 'center' }); s.focus(); } }, 350); setMsg('#impmsg', 'เปลี่ยนเวรวันที่ ' + d + ' ในช่องด้านขวา แล้วกด "บันทึกลงแอป" วันอื่นจะไม่ถูกแตะ'); };
@@ -1545,7 +1554,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       var sendNow = $('#impgcal').checked;
       imp = null; $('#impresult').hidden = true; $('#impfile').value = ''; $('#impprev').hidden = true; impFile = null; impAvailability();
       viewMonth = key; render();
-      if (sendNow) { await new Promise(function (r) { setTimeout(r, 600); }); $('#sendcal').click(); $('#sendcal').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      if (sendNow) { await new Promise(function (r) { setTimeout(r, 400); }); if (mcp) $('#sendcal').click(); else setMsg('#calmsg', 'บันทึกเวรแล้ว กดปุ่มนี้เพื่อลงปฏิทิน'); $('#sendcal').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     } catch (e) { setMsg('#impmsg', 'บันทึกได้ ' + ok + ' วัน แล้วหยุด ลองกดบันทึกอีกครั้ง'); }
     finally { btn.disabled = false; }
   };
