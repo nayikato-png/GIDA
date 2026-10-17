@@ -1,5 +1,5 @@
 /* Hello GiDA service worker: works offline after the first visit */
-const CACHE = 'gida-v1';
+const CACHE = 'gida-v2';
 const FILES = [
 "./",
 "index.html",
