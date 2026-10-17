@@ -407,7 +407,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       <form id="addform" autocomplete="off">
         <input type="text" id="tt" placeholder="พิมพ์สิ่งสำคัญของวันนี้..." aria-label="สิ่งสำคัญวันนี้">
         <button class="add" type="submit" aria-label="เพิ่ม"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-        <div class="opts"><label>เวลา <input type="time" id="tm"></label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="tc" checked> ลง Google Calendar</label></div>
+        <div class="opts"><label>เวลา <input type="time" id="tm"></label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="tc" checked> ลงปฏิทินไอโฟน</label></div>
       </form>
       <div class="msg" id="tmsg" role="status"></div>
     </div>
@@ -1192,13 +1192,17 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   function createEvent(summary, start, end, desc, remind) {
     return mcp.callTool(CAL, 'create_event', { summary: summary, startTime: start, endTime: end, timeZone: 'Asia/Bangkok', description: desc || '', overrideReminders: [{ method: 'popup', minutes: remind }] }, { cache: false });
   }
-  function gcalUrl(t) {
-    var d = t.date.replace(/-/g, ''), dates;
+  function todoIcs(t) {
+    var d = t.date.replace(/-/g, ''), st = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z', L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Hello GiDA//TH', 'CALSCALE:GREGORIAN',
+      'BEGIN:VTIMEZONE', 'TZID:Asia/Bangkok', 'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:+0700', 'TZOFFSETTO:+0700', 'TZNAME:+07', 'END:STANDARD', 'END:VTIMEZONE',
+      'BEGIN:VEVENT', 'UID:gida-todo-' + t.id + '@hello-gida', 'DTSTAMP:' + st];
     if (t.time) {
       var m = Math.min(1439, Number(t.time.slice(0, 2)) * 60 + Number(t.time.slice(3)) + 30);
-      dates = d + 'T' + t.time.replace(':', '') + '00/' + d + 'T' + pad(Math.floor(m / 60)) + pad(m % 60) + '00';
-    } else { dates = d + '/' + addDays(t.date, 1).replace(/-/g, ''); }
-    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(t.text) + '&dates=' + dates + '&ctz=Asia%2FBangkok&details=' + encodeURIComponent('เพิ่มจาก Hello GiDA');
+      L.push('DTSTART;TZID=Asia/Bangkok:' + d + 'T' + t.time.replace(':', '') + '00', 'DTEND;TZID=Asia/Bangkok:' + d + 'T' + pad(Math.floor(m / 60)) + pad(m % 60) + '00',
+        'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(t.text), 'TRIGGER:-PT30M', 'END:VALARM');
+    } else L.push('DTSTART;VALUE=DATE:' + d, 'DTEND;VALUE=DATE:' + addDays(t.date, 1).replace(/-/g, ''));
+    L.push('SUMMARY:' + icsEsc(t.text), 'DESCRIPTION:' + icsEsc('เพิ่มจาก Hello GiDA'), 'END:VEVENT', 'END:VCALENDAR');
+    return dl.save({ filename: 'gida-' + t.date + '.ics', data: L.join('\r\n'), type: 'text/calendar' });
   }
   async function todoToCal(t) {
     var time = t.time || '09:00', m = Math.min(1439, Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + 30);
@@ -1233,7 +1237,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       if (act === 'tg') { try { await db.doc('todos/' + id).update({ done: !t.done }); } catch (er) { setMsg('#tmsg', 'บันทึกไม่สำเร็จ'); } }
       if (act === 'del') { try { await db.doc('todos/' + id).delete(); } catch (er) { setMsg('#tmsg', 'ลบไม่สำเร็จ'); } }
       if (act === 'cal') {
-        if (!mcp) { window.open(gcalUrl(t), '_blank'); try { await db.doc('todos/' + id).update({ gcal: true }); } catch (er) {} setMsg('#tmsg', 'เปิด Google Calendar แล้ว กด Save ในหน้านั้นเพื่อบันทึก'); return; }
+        if (!mcp) { todoIcs(t); try { await db.doc('todos/' + id).update({ gcal: true }); } catch (er) {} setMsg('#tmsg', 'เปิดไฟล์แล้วกด "เพิ่ม" เพื่อลงปฏิทินในไอโฟน'); return; }
         btn.disabled = true; setMsg('#tmsg', 'กำลังลงปฏิทิน...');
         try { await todoToCal(t); setMsg('#tmsg', 'ลงปฏิทินแล้ว'); } catch (er) { setMsg('#tmsg', calError(er)); btn.disabled = false; }
       }
@@ -1257,11 +1261,12 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     if (!text) { setMsg('#tmsg', 'พิมพ์สิ่งที่ต้องทำก่อน'); return; }
     if (!db) { setMsg('#tmsg', 'หน้านี้ยังเก็บข้อมูลไม่ได้ ต้องเปิดในแอป Claude ที่เข้าสู่ระบบ'); return; }
     var data = { text: text, date: sel, time: $('#tm').value || '', done: false, gcal: false, createdAt: Date.now() }, want = $('#tc').checked, opened = false;
-    if (want && !mcp) { window.open(gcalUrl(data), '_blank'); data.gcal = true; want = false; opened = true; }
+    if (want && !mcp) { data.gcal = true; want = false; opened = true; }
     try {
       var ref = await db.collection('todos').add(data);
       $('#tt').value = ''; $('#tm').value = '';
-      setMsg('#tmsg', opened ? 'เพิ่มแล้ว เปิด Google Calendar ให้แล้ว กด Save ในหน้านั้น' : 'เพิ่มแล้ว');
+      setMsg('#tmsg', 'เพิ่มแล้ว');
+      if (opened) { todoIcs(Object.assign({ id: ref.id }, data)); setMsg('#tmsg', 'เพิ่มแล้ว เปิดไฟล์แล้วกด "เพิ่ม" เพื่อลงปฏิทินในไอโฟน'); }
       if (want) {
         if (!mcp) { setMsg('#tmsg', 'เพิ่มรายการแล้ว (เวอร์ชันนี้ลงปฏิทินอัตโนมัติไม่ได้)'); return; }
         setMsg('#tmsg', 'เพิ่มแล้ว กำลังลงปฏิทิน...');
