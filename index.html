@@ -409,7 +409,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       <form id="addform" autocomplete="off">
         <input type="text" id="tt" placeholder="พิมพ์สิ่งสำคัญของวันนี้..." aria-label="สิ่งสำคัญวันนี้">
         <button class="add" type="submit" aria-label="เพิ่ม"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-        <div class="opts"><label>เวลา <input type="time" id="tm"></label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="tc" checked> ลงปฏิทินไอโฟน</label></div>
+        <div class="opts"><label>เวลา <input type="time" id="tm"></label><label>นาน <select id="tdur" style="background:rgba(255,255,255,.8);border:1.5px solid rgba(229,154,176,.7);border-radius:999px;color:#4A3B34;font:inherit;font-size:.8rem;padding:3px 8px"><option value="30">30 นาที</option><option value="60" selected>1 ชม.</option><option value="90">1.5 ชม.</option><option value="120">2 ชม.</option><option value="180">3 ชม.</option><option value="240">4 ชม.</option><option value="300">5 ชม.</option><option value="360">6 ชม.</option><option value="480">8 ชม.</option></select></label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="tc" checked> ลงปฏิทินไอโฟน</label></div>
       </form>
       <div class="msg" id="tmsg" role="status"></div>
     </div>
@@ -764,26 +764,46 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   /* make the day's plan respect timed to-dos: move study/research/health/life blocks that clash, drop them if no room */
   function toMin(t) { return t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null; }
   function fromMin(m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
+  var SUG = {};
+  function durOf(t) { var d = Number(t && t.dur); return d > 0 ? d : 60; }
+  function durTxt(m) { return m % 60 ? (m < 60 ? m + ' นาที' : (m / 60).toFixed(1).replace('.0', '') + ' ชม.') : (m / 60) + ' ชม.'; }
+  function todoWhen(t) {
+    if (t.time) { var a = toMin(t.time); return t.time + '–' + fromMin(Math.min(a + durOf(t), 1439)); }
+    var sg = SUG[t.date] && SUG[t.date][t.id];
+    return (sg ? 'แนะนำ ' + sg + '–' + fromMin(Math.min(toMin(sg) + durOf(t), 1439)) + ' · ' : 'ไม่ระบุเวลา · ') + 'นาน ' + durTxt(durOf(t));
+  }
   function fitTodos(b, iso) {
-    var list = (typeof todos !== 'undefined' ? todos : []).filter(function (t) { return t.date === iso && t.time && !t.done; });
-    if (!list.length) return '';
-    var busy = list.map(function (t) { var a = toMin(t.time); return [a, Math.min(a + 60, 1440)]; });
-    var MOV = { study: 1, research: 1, health: 1, life: 1 }, placed = [], moved = 0, dropped = 0;
+    var all = (typeof todos !== 'undefined' ? todos : []).filter(function (t) { return t.date === iso && !t.done; });
+    SUG[iso] = {};
+    if (!all.length) return '';
+    var timed = all.filter(function (t) { return t.time; }), loose = all.filter(function (t) { return !t.time; });
+    var busy = timed.map(function (t) { var a = toMin(t.time); return [a, Math.min(a + durOf(t), 1440)]; });
+    var MOV = { study: 1, research: 1, health: 1, life: 1 }, placed = [], moved = 0, dropped = 0, unfit = 0;
     b.forEach(function (x) { if (!MOV[x.k] && x.t && x.e) { var a = toMin(x.t), z = toMin(x.e); busy.push([a, z > a ? z : 1440]); } });
     function clash(a, z) { return busy.concat(placed).some(function (r) { return a < r[1] && z > r[0]; }); }
+    function slot(d, from) { for (var s0 = from; s0 + d <= 22 * 60; s0 += 30) if (!clash(s0, s0 + d)) return s0; return null; }
+    /* to-dos without a time get the earliest free slot first: they are what she said she must do today */
+    var nowMin = iso === todayISO() ? Math.ceil((new Date().getHours() * 60 + new Date().getMinutes()) / 30) * 30 : 0;
+    loose.sort(function (x, y) { return (x.createdAt || 0) - (y.createdAt || 0); }).forEach(function (t) {
+      var g = slot(durOf(t), Math.max(8 * 60, nowMin));
+      if (g == null) { unfit++; return; }
+      SUG[iso][t.id] = fromMin(g); busy.push([g, g + durOf(t)]);
+    });
     for (var i = 0; i < b.length; i++) {
       var x = b[i]; if (!MOV[x.k] || !x.t || !x.e) continue;
       var a = toMin(x.t), z = toMin(x.e), d = z - a; if (d <= 0) continue;
       if (!clash(a, z)) { placed.push([a, z]); continue; }
       var got = null, s0;
       for (s0 = a + 30; s0 + d <= 22 * 60 && got == null; s0 += 30) if (!clash(s0, s0 + d)) got = s0;
-      for (s0 = a - 30; s0 >= 7 * 60 && got == null; s0 -= 30) if (!clash(s0, s0 + d)) got = s0;
+      for (s0 = a - 30; s0 >= Math.max(8 * 60, nowMin) && got == null; s0 -= 30) if (!clash(s0, s0 + d)) got = s0;
       if (got != null) { x.t = fromMin(got); x.e = fromMin(got + d); x.l += ' (เลื่อนเวลาเพราะมีนัด)'; placed.push([got, got + d]); moved++; }
       else { b.splice(i, 1); i--; dropped++; }
     }
     b.sort(function (p1, p2) { return (p1.t || '99') < (p2.t || '99') ? -1 : (p1.t || '99') > (p2.t || '99') ? 1 : 0; });
-    return moved || dropped ? 'มีนัด ' + list.length + ' รายการ' + (moved ? ' เลื่อนแผน ' + moved + ' ช่วง' : '') + (dropped ? ' งด ' + dropped + ' ช่วงเพราะเวลาไม่พอ' : '') : '';
+    var used = all.reduce(function (sm, t) { return sm + durOf(t); }, 0);
+    return 'สิ่งที่ต้องทำ ' + all.length + ' รายการ รวม ' + durTxt(used) + (moved ? ' · เลื่อนแผน ' + moved + ' ช่วง' : '') + (dropped ? ' · งด ' + dropped + ' ช่วงเพราะเวลาไม่พอ' : '') + (unfit ? ' · มี ' + unfit + ' รายการที่หาเวลาว่างไม่ได้' : '');
   }
+
   var KIND = { study: 'เรียน', research: 'วิจัย', rest: 'พัก', health: 'สุขภาพ', life: 'ชีวิต', work: 'งาน' };
   var KCOL = { study: '--s-morning', research: '--s-train', rest: '--s-night', health: '--s-vac', life: '--s-ot', work: '--s-afternoon' };
   function hoursOf(p, k) { return p.blocks.reduce(function (s, b) { return s + (b.k === k ? b.h : 0); }, 0); }
@@ -945,7 +965,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     var list = todosOn(sel).slice().sort(function (a, b) { return (a.time || '99') < (b.time || '99') ? -1 : 1; });
     $('#todos').innerHTML = list.length ? list.map(function (t) {
       return '<li class="' + (t.done ? 'done' : '') + '" data-id="' + esc(t.id) + '"><button class="ck' + (t.done ? ' on' : '') + '" data-act="tg" aria-label="' + (t.done ? 'ยกเลิกเสร็จ' : 'ทำเสร็จแล้ว') + '">' + (t.done ? svg(IC.check, 'sm') : '') + '</button>' +
-        '<div><div class="tx">' + esc(t.text) + '</div>' + (t.time || t.gcal ? '<div class="tm">' + esc(t.time || '') + (t.gcal ? (t.time ? ' · ' : '') + 'อยู่ในปฏิทินแล้ว' : '') + '</div>' : '') + '</div>' +
+        '<div><div class="tx">' + esc(t.text) + '</div>' + '<div class="tm">' + esc(todoWhen(t)) + (t.gcal ? ' · อยู่ในปฏิทินแล้ว' : '') + '</div>' + '</div>' +
         '<div class="acts">' + (t.gcal ? '' : '<button class="mini" data-act="cal" aria-label="ลงปฏิทิน" title="ลงปฏิทิน">' + svg(IC.cal, 'sm') + '</button>') + '<button class="mini" data-act="del" aria-label="ลบ" title="ลบ">' + svg(IC.del, 'sm') + '</button></div></li>';
     }).join('') : '<li class="none"><img src="stickers/s1-12.webp" alt="" style="width:54px;vertical-align:middle;margin-right:6px">ยังว่างอยู่ พิมพ์สิ่งที่สำคัญที่สุดของวันนี้ได้เลย ♡</li>';
     layoutMemo();
@@ -1096,7 +1116,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
   }
   function renderTimeline(p, iso) {
     var items = p.blocks.map(function (b) { return { kind: 'plan', t: b.t, e: b.e, l: b.l, k: b.k }; });
-    todosOn(iso).forEach(function (t) { items.push({ kind: 'todo', t: t.time || '', todo: t }); });
+    todosOn(iso).forEach(function (t) { items.push({ kind: 'todo', t: t.time || (SUG[iso] && SUG[iso][t.id]) || '', todo: t }); });
     items.sort(function (a, b) { return (a.t || '99') < (b.t || '99') ? -1 : (a.t || '99') > (b.t || '99') ? 1 : 0; });
     if (!items.length) { $('#tl').innerHTML = '<li style="display:block"><div class="empty"><img src="stickers/latte.webp" alt="" style="width:76px;display:block;margin:0 auto 6px">ยังไม่มีแผนของวันนี้ เพราะยังไม่มีข้อมูลเวร</div></li>'; return; }
     $('#tl').innerHTML = items.map(function (it) {
@@ -1104,7 +1124,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
         return '<li><span class="t">' + esc(it.t || '—') + '</span><img class="pk" src="stickers/' + KST[it.k] + '.webp" alt=""><div><div class="ti">' + esc(it.l) + '</div><div class="sb">แผน · ' + KIND[it.k] + (it.e ? ' · ถึง ' + esc(it.e) : '') + schedTxt(iso, it.k) + '</div></div><span></span></li>';
       }
       var t = it.todo;
-      return '<li class="' + (t.done ? 'done' : '') + '" data-id="' + esc(t.id) + '"><span class="t">' + esc(t.time || '—') + '</span><button class="mk' + (t.done ? ' on' : '') + '" data-act="tg" aria-label="' + (t.done ? 'ยกเลิกเสร็จ' : 'ทำเสร็จแล้ว') + '">' + (t.done ? svg(IC.check, 'sm') : '') + '</button><div><div class="ti">' + esc(t.text) + '</div><div class="sb">สิ่งที่ต้องทำ' + (t.gcal ? ' · อยู่ในปฏิทินแล้ว' : '') + '</div></div><div class="acts">' +
+      return '<li class="' + (t.done ? 'done' : '') + '" data-id="' + esc(t.id) + '"><span class="t">' + esc(t.time || (it.t ? '~' + it.t : '—')) + '</span><button class="mk' + (t.done ? ' on' : '') + '" data-act="tg" aria-label="' + (t.done ? 'ยกเลิกเสร็จ' : 'ทำเสร็จแล้ว') + '">' + (t.done ? svg(IC.check, 'sm') : '') + '</button><div><div class="ti">' + esc(t.text) + '</div><div class="sb">สิ่งที่ต้องทำ · ' + esc(todoWhen(t)) + (t.gcal ? ' · อยู่ในปฏิทินแล้ว' : '') + '</div></div><div class="acts">' +
         (t.gcal ? '' : '<button class="mini" data-act="cal" aria-label="ลงปฏิทิน" title="ลงปฏิทิน">' + svg(IC.cal, 'sm') + '</button>') + '<button class="mini" data-act="del" aria-label="ลบ" title="ลบ">' + svg(IC.del, 'sm') + '</button></div></li>';
     }).join('');
   }
@@ -1226,7 +1246,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
       'BEGIN:VTIMEZONE', 'TZID:Asia/Bangkok', 'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:+0700', 'TZOFFSETTO:+0700', 'TZNAME:+07', 'END:STANDARD', 'END:VTIMEZONE',
       'BEGIN:VEVENT', 'UID:gida-todo-' + t.id + '@hello-gida', 'DTSTAMP:' + st];
     if (t.time) {
-      var m = Math.min(1439, Number(t.time.slice(0, 2)) * 60 + Number(t.time.slice(3)) + 30);
+      var m = Math.min(1439, Number(t.time.slice(0, 2)) * 60 + Number(t.time.slice(3)) + durOf(t));
       L.push('DTSTART;TZID=Asia/Bangkok:' + d + 'T' + t.time.replace(':', '') + '00', 'DTEND;TZID=Asia/Bangkok:' + d + 'T' + pad(Math.floor(m / 60)) + pad(m % 60) + '00',
         'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(t.text), 'TRIGGER:-PT30M', 'END:VALARM');
     } else L.push('DTSTART;VALUE=DATE:' + d, 'DTEND;VALUE=DATE:' + addDays(t.date, 1).replace(/-/g, ''));
@@ -1234,7 +1254,7 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     return dl.save({ filename: 'gida-' + t.date + '.ics', data: L.join('\r\n'), type: 'text/calendar' });
   }
   async function todoToCal(t) {
-    var time = t.time || '09:00', m = Math.min(1439, Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + 30);
+    var time = t.time || '09:00', m = Math.min(1439, Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + durOf(t));
     await createEvent(t.text, t.date + 'T' + time + ':00', t.date + 'T' + pad(Math.floor(m / 60)) + ':' + pad(m % 60) + ':00', 'เพิ่มจากเลขาประจำเวร', 30);
     await db.doc('todos/' + t.id).update({ gcal: true });
   }
@@ -1289,11 +1309,11 @@ nav.tabs button[aria-selected="true"] .ico { stroke-width: 2.1; }
     var text = $('#tt').value.trim();
     if (!text) { setMsg('#tmsg', 'พิมพ์สิ่งที่ต้องทำก่อน'); return; }
     if (!db) { setMsg('#tmsg', 'หน้านี้ยังเก็บข้อมูลไม่ได้ ต้องเปิดในแอป Claude ที่เข้าสู่ระบบ'); return; }
-    var data = { text: text, date: sel, time: $('#tm').value || '', done: false, gcal: false, createdAt: Date.now() }, want = $('#tc').checked, opened = false;
+    var data = { text: text, date: sel, time: $('#tm').value || '', dur: +$('#tdur').value || 60, done: false, gcal: false, createdAt: Date.now() }, want = $('#tc').checked, opened = false;
     if (want && !mcp) { data.gcal = true; want = false; opened = true; }
     try {
       var ref = await db.collection('todos').add(data);
-      $('#tt').value = ''; $('#tm').value = '';
+      $('#tt').value = ''; $('#tm').value = ''; $('#tdur').value = '60';
       setMsg('#tmsg', 'เพิ่มแล้ว');
       if (opened) { todoIcs(Object.assign({ id: ref.id }, data)); setMsg('#tmsg', 'เพิ่มแล้ว เปิดไฟล์แล้วกด "เพิ่ม" เพื่อลงปฏิทินในไอโฟน'); }
       if (want) {
